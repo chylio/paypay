@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sheets 設定指南</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-image: linear-gradient(-45deg, #f2efe0, #e8e4d9, #f0ede3, #d7e2e3);
+            background-size: 400% 400%;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 2rem;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 1.5rem;
+        }
+        .step-number {
+            background-color: #a87b7a;
+            color: white;
+            border-radius: 50%;
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+        code {
+            background-color: #f1f5f9;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-family: 'Courier New', monospace;
+        }
+        .highlight {
+            background-color: #fef3c7;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            border-left: 4px solid #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center">Google Sheets 設定指南</h1>
+        
+        <div class="card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">設定步驟</h2>
+            
+            <div class="space-y-6">
+                <!-- Step 1 -->
+                <div class="flex items-start">
+                    <div class="step-number">1</div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">建立 Google Sheets 試算表</h3>
+                        <p class="text-gray-600 mb-3">
+                            前往 <a href="https://sheets.google.com" target="_blank" class="text-blue-600 underline">Google Sheets</a> 建立一個新的試算表，命名為「旅行分帳」或任何您喜歡的名稱。
+                        </p>
+                        <div class="highlight">
+                            <strong>重要：</strong>建立兩個工作表頁面：
+                            <ul class="list-disc list-inside ml-4 mt-2">
+                                <li><strong>Members</strong> - 用於儲存成員資料</li>
+                                <li><strong>Expenses</strong> - 用於儲存支出紀錄</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="flex items-start">
+                    <div class="step-number">2</div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">設定試算表標題</h3>
+                        <p class="text-gray-600 mb-3">在 Members 工作表的 A1 儲存格輸入「姓名」</p>
+                        <p class="text-gray-600 mb-3">在 Expenses 工作表的第一行輸入以下標題：</p>
+                        <div class="bg-gray-100 p-3 rounded">
+                            <div class="grid grid-cols-3 gap-2 text-sm">
+                                <div>A1: ID</div>
+                                <div>B1: 日期</div>
+                                <div>C1: 項目</div>
+                                <div>D1: 原始金額</div>
+                                <div>E1: 台幣金額</div>
+                                <div>F1: 幣別</div>
+                                <div>G1: 付款人</div>
+                                <div>H1: 分攤人員</div>
+                                <div>I1: 狀態</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="flex items-start">
+                    <div class="step-number">3</div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">取得試算表 ID</h3>
+                        <p class="text-gray-600 mb-3">從瀏覽器網址列複製試算表 ID：</p>
+                        <code>https://docs.google.com/spreadsheets/d/<span class="text-red-600 font-bold">YOUR_SPREADSHEET_ID</span>/edit</code>
+                        <p class="text-gray-600 mt-2">將這個 ID 記錄下來，稍後會用到。</p>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="flex items-start">
+                    <div class="step-number">4</div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">建立 Google API 金鑰</h3>
+                        <ol class="list-decimal list-inside text-gray-600 space-y-2">
+                            <li>前往 <a href="https://console.cloud.google.com/" target="_blank" class="text-blue-600 underline">Google Cloud Console</a></li>
+                            <li>建立新專案或選擇現有專案</li>
+                            <li>在「APIs & Services」中啟用「Google Sheets API」</li>
+                            <li>建立憑證 → API 金鑰</li>
+                            <li>限制 API 金鑰只能使用 Google Sheets API（建議安全性設定）</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Step 5 -->
+                <div class="flex items-start">
+                    <div class="step-number">5</div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">設定試算表權限</h3>
+                        <p class="text-gray-600 mb-3">
+                            在您的 Google Sheets 中，點擊右上角的「共用」按鈕，將試算表設定為「知道連結的任何人都可以檢視」或「知道連結的任何人都可以編輯」。
+                        </p>
+                        <div class="highlight">
+                            <strong>注意：</strong>這樣設定可能會讓其他人看到您的資料。如需更安全的設定，請研究 OAuth 2.0 認證方式。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 6 -->
+                <div class="flex items-start">
+                    <div class="step-number">6</div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">更新應用程式設定</h3>
+                        <p class="text-gray-600 mb-3">
+                            在 <code>index.html</code> 檔案中，找到 <code>GOOGLE_SHEETS_CONFIG</code> 區塊，並更新以下資訊：
+                        </p>
+                        <div class="bg-gray-100 p-3 rounded text-sm">
+                            <pre><code>const GOOGLE_SHEETS_CONFIG = {
+    API_KEY: '您的_API_金鑰',
+    SPREADSHEET_ID: '您的_試算表_ID',
+    MEMBERS_RANGE: 'Members!A:A',
+    EXPENSES_RANGE: 'Expenses!A:I'
+};</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">測試連線</h2>
+            <p class="text-gray-600 mb-4">
+                完成設定後，重新載入應用程式。如果設定正確，您應該會在頁面右上角看到綠色的連線指示器，並收到「Google Sheets API 載入成功」的通知。
+            </p>
+            <div class="highlight">
+                <strong>常見問題：</strong>
+                <ul class="list-disc list-inside ml-4 mt-2">
+                    <li>如果 API 金鑰無效，會顯示紅色連線狀態</li>
+                    <li>如果試算表 ID 錯誤，資料載入會失敗</li>
+                    <li>如果工作表名稱不符，會顯示載入錯誤</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">功能說明</h2>
+            <div class="space-y-3">
+                <div>
+                    <h3 class="font-semibold text-gray-800">自動同步</h3>
+                    <p class="text-gray-600">每次新增、刪除成員或支出紀錄時，資料會自動同步到 Google Sheets</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-800">離線模式</h3>
+                    <p class="text-gray-600">如果無法連線到 Google Sheets，應用程式會自動切換到離線模式</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-800">資料備份</h3>
+                    <p class="text-gray-600">所有資料都會儲存在您的 Google Sheets 中，不會遺失</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <a href="index.html" class="inline-block bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition duration-200">
+                返回應用程式
+            </a>
+        </div>
+    </div>
+</body>
+</html>
