@@ -3,537 +3,250 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>旅行分帳儀表板</title>
-    <!-- Tailwind CSS CDN for modern styling -->
+    <title>旅行分帳儀表板（Google Sheets 版）</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @keyframes flow {
-            0% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            /* Morandi-style Spanish flag colors with flowing animation */
-            background-image: linear-gradient(-45deg, #f2efe0, #e8e4d9, #f0ede3, #d7e2e3);
-            background-size: 400% 400%;
-            animation: flow 20s ease infinite;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        .card {
-            background-color: white;
-            border-radius: 1rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            padding: 1.5rem;
-            border: 1px solid #e2e8f0;
-        }
-        .section-title {
-            font-size: 1.75rem;
-            font-weight: bold;
-            color: #1f2937;
-            margin-bottom: 1rem;
-            /* Morandi Spanish red accent */
-            border-left: 4px solid #a87b7a;
-            padding-left: 0.75rem;
-        }
-        .total-amount {
-            font-size: 3rem;
-            font-weight: bold;
-            color: #a89b73; /* Morandi Spanish gold */
-        }
-        .status-positive {
-            color: #73a998; /* A sophisticated green */
-        }
-        .status-negative {
-            color: #d88080; /* A sophisticated red */
-        }
-        .rotate-180 {
-            transform: rotate(180deg);
-        }
-        .transition-transform {
-            transition: transform 0.3s ease-in-out;
-        }
-        .btn-primary {
-            background-color: #a87b7a; /* Morandi Spanish red */
-            transition: all 0.2s ease-in-out;
-        }
-        .btn-primary:hover {
-            background-color: #946766;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .btn-secondary {
-            background-color: #e2e8f0;
-            color: #4a5568;
-            transition: all 0.2s ease-in-out;
-        }
-        .btn-secondary:hover {
-            background-color: #cbd5e0;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .scroll-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
+        body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
+        .container { max-width: 1000px; margin: auto; padding: 2rem; }
+        .card { background: #fff; border-radius: 1rem; box-shadow: 0 2px 8px #0001; padding: 1.5rem; margin-bottom: 2rem; }
+        .section-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; border-left: 4px solid #a87b7a; padding-left: 0.75rem; }
+        .btn-primary { background: #a87b7a; color: #fff; font-weight: bold; border-radius: 2rem; padding: 0.75rem 2rem; }
+        .btn-primary:hover { background: #946766; }
+        .scroll-list { max-height: 300px; overflow-y: auto; }
     </style>
 </head>
-<body class="p-8">
+<body>
     <div class="container">
-        <!-- Dashboard Header -->
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center">旅行分帳儀表板</h1>
-
-        <!-- Main Dashboard Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-            <!-- 左側欄位 -->
-            <div class="lg:col-span-2 space-y-8">
-                <!-- 總覽卡片 -->
-                <div class="card">
-                    <h2 class="section-title">總覽</h2>
-                    <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <p class="text-base text-gray-500">總支出金額 (台幣)</p>
-                            <span id="total-amount-display" class="total-amount">0</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 新增分帳紀錄表單 -->
+        <h1 class="text-3xl text-center font-bold mb-6">旅行分帳儀表板</h1>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- 新增分帳表單 -->
+            <div>
                 <div class="card">
                     <h2 class="section-title">新增分帳紀錄</h2>
                     <form id="add-expense-form" class="space-y-4">
                         <div>
-                            <label for="date" class="block text-sm font-medium text-gray-700">日期</label>
-                            <input type="date" id="date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="date" class="block text-sm">日期</label>
+                            <input type="date" id="date" required class="w-full p-2 border rounded">
                         </div>
                         <div>
-                            <label for="item" class="block text-sm font-medium text-gray-700">項目內容</label>
-                            <input type="text" id="item" placeholder="例如：晚餐, 車票" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="item" class="block text-sm">項目內容</label>
+                            <input type="text" id="item" required class="w-full p-2 border rounded">
                         </div>
                         <div>
-                            <label for="amount" class="block text-sm font-medium text-gray-700">金額</label>
-                            <div class="mt-1 relative rounded-md shadow-sm">
-                                <input type="number" id="amount" placeholder="金額" required class="block w-full rounded-md border-gray-300 pl-4 pr-16 p-2 focus:ring-blue-500 focus:border-blue-500">
-                                <div class="absolute inset-y-0 right-0 flex items-center pr-2">
-                                    <select id="currency" class="h-full rounded-md border-transparent bg-gray-50 text-gray-500 text-sm focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="TWD">TWD</option>
-                                        <option value="EUR">EUR</option>
-                                    </select>
-                                </div>
-                            </div>
+                            <label for="amount" class="block text-sm">金額</label>
+                            <input type="number" id="amount" required min="1" class="w-full p-2 border rounded">
                         </div>
                         <div>
-                            <label for="payer" class="block text-sm font-medium text-gray-700">付款人</label>
-                            <select id="payer" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                            <label for="currency" class="block text-sm">幣別</label>
+                            <select id="currency" class="w-full p-2 border rounded">
+                                <option value="TWD">TWD</option>
+                                <option value="EUR">EUR</option>
+                            </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">分攤人員</label>
-                            <div class="flex items-center mb-2">
-                                <input type="checkbox" id="select-all" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                <label for="select-all" class="ml-2 text-sm text-gray-600">全選</label>
-                            </div>
-                            <div id="splitters-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                <!-- Checkboxes will be dynamically added here -->
-                            </div>
+                            <label for="payer" class="block text-sm">付款人</label>
+                            <select id="payer" class="w-full p-2 border rounded"></select>
                         </div>
-                        <button type="submit" class="w-full text-white font-semibold py-3 px-6 rounded-lg btn-primary">新增紀錄</button>
+                        <div>
+                            <label class="block text-sm mb-2">分攤人員</label>
+                            <div id="splitters-container" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        <button type="submit" class="btn-primary w-full">新增紀錄</button>
                     </form>
                 </div>
-            </div>
-
-            <!-- 右側欄位 -->
-            <div class="space-y-8">
-                <!-- 成員管理卡片 - 可收合 -->
+                <!-- 成員管理 -->
                 <div class="card">
-                    <div class="flex items-center justify-between cursor-pointer" id="toggle-members">
-                        <h2 class="section-title mb-0">成員管理</h2>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
-                    <div id="members-content" class="space-y-2 mt-4">
-                        <div id="members-list" class="space-y-2 mb-4 scroll-list">
-                            <!-- Members will be dynamically added here -->
-                        </div>
-                        <div class="flex space-x-2">
-                            <input type="text" id="new-member-name" placeholder="新增成員姓名" class="w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
-                            <button id="add-member-btn" class="text-gray-700 font-semibold py-2 px-4 rounded-lg btn-secondary">新增</button>
-                        </div>
+                    <h2 class="section-title">成員管理</h2>
+                    <div id="members-list" class="space-y-2 mb-4"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-member-name" placeholder="新增成員姓名" class="flex-grow p-2 border rounded">
+                        <button id="add-member-btn" class="btn-primary">新增</button>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- 歷史紀錄 -->
-        <div class="card mt-8">
-            <h2 class="section-title">歷史紀錄</h2>
-            <div id="expense-history-list" class="space-y-4 scroll-list">
-                <!-- Expense history will be dynamically added here -->
-            </div>
-        </div>
-
-        <!-- 個人結餘卡片 - 移至歷史紀錄下方 -->
-        <div class="card mt-8">
-            <h2 class="section-title">個人結餘</h2>
-            <div id="summary-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Summary will be dynamically added here -->
+            <!-- 儀表板與歷史紀錄 -->
+            <div>
+                <div class="card">
+                    <h2 class="section-title">總覽</h2>
+                    <div>總支出（台幣）：<span id="total-amount-display" class="text-2xl font-bold">0</span></div>
+                </div>
+                <div class="card">
+                    <h2 class="section-title">歷史紀錄</h2>
+                    <div id="expense-history-list" class="scroll-list"></div>
+                </div>
+                <div class="card">
+                    <h2 class="section-title">個人結餘</h2>
+                    <div id="summary-list"></div>
+                </div>
             </div>
         </div>
     </div>
-
     <script>
-        // 設定成員初始清單
+        // ========= 1. 設定 Google Apps Script Web App API =========
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzt9KKwBuliXT1hqXFqg645ouTI_W4_K4UpkrOA05t1m6uHjC7FPvsHKMgkG4LF-V8/exec'; // <-- 換成你的 Google Apps Script Web App 部署網址
+
+        // ========= 2. 初始化成員 =========
         let members = [
             '吳曉琪', '郭妍伶', '李美娟', '陳伯榕', '蘇慧真',
             'EMMA', '劉美媛', '黃淑芬', '黃學長'
         ];
-        
-        // 使用陣列來模擬 Google Sheets 資料庫
-        let expenses = []; 
-        
-        // 匯率設定
-        const exchangeRate = 35; // 1 EUR = 35 TWD
+        let expenses = [];
+        const exchangeRate = 35;
 
-        // DOM 元素快取
+        // ========= 3. DOM 快取 =========
         const payerSelect = document.getElementById('payer');
         const splittersContainer = document.getElementById('splitters-container');
         const membersListContainer = document.getElementById('members-list');
         const newMemberInput = document.getElementById('new-member-name');
         const addMemberBtn = document.getElementById('add-member-btn');
-        const selectAllCheckbox = document.getElementById('select-all');
         const addExpenseForm = document.getElementById('add-expense-form');
         const summaryList = document.getElementById('summary-list');
         const totalAmountDisplay = document.getElementById('total-amount-display');
         const expenseHistoryList = document.getElementById('expense-history-list');
-        const toggleMembersBtn = document.getElementById('toggle-members');
-        const membersContent = document.getElementById('members-content');
 
-        // --- 成員管理功能 ---
+        // ========= 4. 成員管理 =========
         function renderMembers() {
             membersListContainer.innerHTML = '';
             members.forEach(member => {
-                const memberElement = document.createElement('div');
-                memberElement.className = 'flex items-center justify-between bg-gray-50 rounded-md p-2';
-                memberElement.innerHTML = `
-                    <span class="text-sm font-medium">${member}</span>
-                    <button class="delete-member-btn text-gray-400 hover:text-red-500 transition duration-150" data-name="${member}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.728-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
+                const el = document.createElement('div');
+                el.className = 'flex justify-between items-center bg-gray-50 rounded p-2';
+                el.innerHTML = `
+                    <span>${member}</span>
+                    <button class="text-red-500 delete-member-btn" data-name="${member}">刪除</button>
                 `;
-                membersListContainer.appendChild(memberElement);
+                membersListContainer.appendChild(el);
             });
             renderPayerSelect();
             renderSplittersCheckboxes();
-            updateSummary();
         }
-
-        addMemberBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const newName = newMemberInput.value.trim();
-            if (newName && !members.includes(newName)) {
-                members.push(newName);
+        addMemberBtn.addEventListener('click', () => {
+            const name = newMemberInput.value.trim();
+            if (name && !members.includes(name)) {
+                members.push(name);
                 newMemberInput.value = '';
                 renderMembers();
             }
         });
-
         membersListContainer.addEventListener('click', (e) => {
-            if (e.target.closest('.delete-member-btn')) {
-                const memberName = e.target.closest('.delete-member-btn').dataset.name;
-                members = members.filter(member => member !== memberName);
+            if (e.target.classList.contains('delete-member-btn')) {
+                const name = e.target.dataset.name;
+                members = members.filter(m => m !== name);
                 renderMembers();
             }
         });
 
-        // 新增成員管理區塊的開關功能
-        toggleMembersBtn.addEventListener('click', () => {
-            membersContent.classList.toggle('hidden');
-            toggleMembersBtn.querySelector('svg').classList.toggle('rotate-180');
-        });
-
-        // --- 表單功能 ---
+        // ========= 5. 表單動態成員選擇 =========
         function renderPayerSelect() {
-            payerSelect.innerHTML = members.map(member => `<option value="${member}">${member}</option>`).join('');
+            payerSelect.innerHTML = members.map(m => `<option value="${m}">${m}</option>`).join('');
         }
-
         function renderSplittersCheckboxes() {
-            splittersContainer.innerHTML = members.map(member => `
-                <div class="flex items-center">
-                    <input type="checkbox" id="splitter-${member}" name="splitters" value="${member}" class="splitter-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                    <label for="splitter-${member}" class="ml-2 text-sm text-gray-700">${member}</label>
-                </div>
+            splittersContainer.innerHTML = members.map(m => `
+                <label class="flex items-center gap-1">
+                    <input type="checkbox" name="splitters" value="${m}">
+                    ${m}
+                </label>
             `).join('');
         }
-        
-        selectAllCheckbox.addEventListener('change', () => {
-            const checkboxes = document.querySelectorAll('.splitter-checkbox');
-            checkboxes.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
-        });
 
+        // ========= 6. 新增分帳紀錄（送出到 Google Sheet） =========
         addExpenseForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const date = document.getElementById('date').value;
             const item = document.getElementById('item').value;
             const amount = parseFloat(document.getElementById('amount').value);
             const currency = document.getElementById('currency').value;
-            const payer = document.getElementById('payer').value;
-            const splitterCheckboxes = document.querySelectorAll('input[name="splitters"]:checked');
-            const splitters = Array.from(splitterCheckboxes).map(cb => cb.value);
-
-            if (splitters.length === 0) {
-                alert('請選擇分攤人員');
-                return;
-            }
-
-            // 轉換金額為 TWD
-            const convertedAmount = currency === 'EUR' ? amount * exchangeRate : amount;
-
-            const newExpense = {
-                id: Date.now(), // 模擬一個唯一 ID
-                date: date,
-                item: item,
-                originalAmount: amount,
-                convertedAmount: convertedAmount,
-                currency: currency,
-                payer: payer,
-                splitters: splitters,
-                status: 'active'
-            };
-
-            // 在這裡，實際的專案會發送 API 請求到後端來新增紀錄
-            expenses.push(newExpense);
-            
-            // 清空表單並更新介面
-            addExpenseForm.reset();
-            updateDashboard();
-        });
-        
-        // --- 儀表板更新與計算邏輯 ---
-        
-        function calculateSummary() {
-            const balances = {};
-            const detailedTransactions = {};
-
-            members.forEach(member => {
-                balances[member] = 0;
-                detailedTransactions[member] = { receivedFrom: [], paidTo: [] };
+            const payer = payerSelect.value;
+            const splitters = Array.from(document.querySelectorAll('input[name="splitters"]:checked')).map(cb => cb.value);
+            if (!splitters.length) return alert('請選擇分攤人員');
+            // 送出 API
+            const newExpense = { date, item, amount, currency, payer, splitters };
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(newExpense)
+            })
+            .then(r => r.json())
+            .then(data => {
+                addExpenseForm.reset();
+                fetchExpensesFromSheet();
             });
-
-            const activeExpenses = expenses.filter(exp => exp.status === 'active');
-            
-            activeExpenses.forEach(expense => {
-                const shareAmount = expense.convertedAmount / expense.splitters.length;
-                
-                // 計算每人總餘額
-                balances[expense.payer] += expense.convertedAmount;
-                expense.splitters.forEach(splitter => {
-                    balances[splitter] -= shareAmount;
-                });
-
-                // 紀錄明細
-                expense.splitters.forEach(splitter => {
-                    if (splitter !== expense.payer) {
-                        // 追蹤誰付了錢給誰
-                        detailedTransactions[splitter].paidTo.push({
-                            to: expense.payer,
-                            item: expense.item,
-                            amount: shareAmount
-                        });
-                        // 追蹤誰從誰那裡收錢
-                        detailedTransactions[expense.payer].receivedFrom.push({
-                            from: splitter,
-                            item: expense.item,
-                            amount: shareAmount
-                        });
-                    }
-                });
-            });
-
-            return { balances, detailedTransactions };
-        }
-        
-        function updateSummary() {
-            const { balances, detailedTransactions } = calculateSummary();
-            summaryList.innerHTML = '';
-            
-            const activeExpenses = expenses.filter(exp => exp.status === 'active');
-
-            members.forEach(member => {
-                const balance = balances[member];
-                const balanceText = balance >= 0 ? 
-                    `收款 <span class="font-semibold">${Math.abs(balance).toFixed(0)}</span> 元` : 
-                    `付款 <span class="font-semibold">${Math.abs(balance).toFixed(0)}</span> 元`;
-                
-                const balanceClass = balance >= 0 ? 'status-positive' : 'status-negative';
-                
-                const memberSummaryEl = document.createElement('div');
-                memberSummaryEl.className = 'card space-y-2 cursor-pointer toggle-summary-details';
-                
-                let detailsHtml = '';
-
-                // 計算每位成員的付款明細
-                const paidTo = {};
-                if (detailedTransactions[member]?.paidTo) {
-                    detailedTransactions[member].paidTo.forEach(item => {
-                        if (!paidTo[item.to]) {
-                            paidTo[item.to] = 0;
-                        }
-                        paidTo[item.to] += item.amount;
-                    });
-                }
-                for (const target in paidTo) {
-                    detailsHtml += `<li>付款給 ${target}: ${paidTo[target].toFixed(0)} 元</li>`;
-                }
-
-                // 計算每位成員的收款明細
-                const receivedFrom = {};
-                if (detailedTransactions[member]?.receivedFrom) {
-                    detailedTransactions[member].receivedFrom.forEach(item => {
-                        if (!receivedFrom[item.from]) {
-                            receivedFrom[item.from] = 0;
-                        }
-                        receivedFrom[item.from] += item.amount;
-                    });
-                }
-                for (const target in receivedFrom) {
-                    detailsHtml += `<li>收款自 ${target}: ${receivedFrom[target].toFixed(0)} 元</li>`;
-                }
-
-                memberSummaryEl.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-lg font-bold text-gray-800">${member}</h3>
-                        <div class="flex items-center">
-                            <p class="text-sm font-bold ${balanceClass}">${balanceText}</p>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ml-2 text-gray-500 transition-transform toggle-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="summary-details hidden space-y-2 text-sm">
-                        <p class="font-semibold text-gray-700">明細:</p>
-                        ${detailsHtml ? `<ul class="list-disc list-inside">${detailsHtml}</ul>` : '<p class="text-gray-500">結算已清。</p>'}
-                    </div>
-                `;
-                summaryList.appendChild(memberSummaryEl);
-            });
-            
-            totalAmountDisplay.textContent = activeExpenses.reduce((sum, exp) => sum + exp.convertedAmount, 0).toFixed(0);
-        }
-        
-        // 點擊卡片顯示/隱藏明細
-        summaryList.addEventListener('click', (e) => {
-            const card = e.target.closest('.toggle-summary-details');
-            if (card) {
-                const details = card.querySelector('.summary-details');
-                const icon = card.querySelector('.toggle-icon');
-                details.classList.toggle('hidden');
-                icon.classList.toggle('rotate-180');
-            }
         });
 
-
-        function renderExpenseHistory() {
-            expenseHistoryList.innerHTML = '';
-            const activeExpenses = expenses.filter(exp => exp.status === 'active');
-            
-            if (activeExpenses.length === 0) {
-                expenseHistoryList.innerHTML = '<p class="text-gray-500 text-center">目前沒有任何分帳紀錄。</p>';
-                return;
-            }
-
-            activeExpenses.forEach((exp, index) => {
-                // 為每一筆紀錄加上一個唯一的 ID，方便後續刪除操作
-                exp.id = exp.id || index;
-
-                const card = document.createElement('div');
-                card.className = 'card space-y-2';
-                card.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="flex-grow">
-                            <h3 class="font-bold text-gray-800">${exp.item}</h3>
-                            <p class="text-sm text-gray-500">${exp.date} &bull; ${exp.payer} 付了 <span class="font-semibold text-gray-800">${exp.originalAmount.toFixed(2)}</span> ${exp.currency}</p>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <button class="toggle-details text-gray-500 hover:text-blue-500 transition duration-150">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            <button class="delete-expense-btn text-gray-500 hover:text-red-500 transition duration-150" data-id="${exp.id}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="expense-details hidden space-y-2">
-                        <h4 class="font-semibold text-gray-700">分攤明細 (每人)</h4>
-                        <ul class="text-sm text-gray-600">
-                            ${exp.splitters.map(splitter => `
-                                <li>${splitter}: ${(exp.convertedAmount / exp.splitters.length).toFixed(0)} 元</li>
-                            `).join('')}
-                        </ul>
-                    </div>
-                `;
-                expenseHistoryList.appendChild(card);
-            });
-        }
-        
-        expenseHistoryList.addEventListener('click', (e) => {
-            const toggleBtn = e.target.closest('.toggle-details');
-            if (toggleBtn) {
-                const details = toggleBtn.closest('.card').querySelector('.expense-details');
-                details.classList.toggle('hidden');
-                return;
-            }
-
-            const deleteBtn = e.target.closest('.delete-expense-btn');
-            if (deleteBtn) {
-                const expenseId = parseInt(deleteBtn.dataset.id);
-                // 這裡會發送 API 請求到後端來刪除紀錄
-                // 例如：fetch(`/api/deleteExpense/${expenseId}`, { method: 'DELETE' });
-                // 後端成功更新 Google Sheets 後，再回傳成功訊息
-                
-                // 模擬邏輯刪除
-                const expenseToDelete = expenses.find(exp => exp.id === expenseId);
-                if (expenseToDelete) {
-                    expenseToDelete.status = 'deleted';
-                }
-                
-                // 重新渲染介面
+        // ========= 7. 取得所有分帳紀錄（從 Google Sheet） =========
+        function fetchExpensesFromSheet() {
+            fetch(WEB_APP_URL)
+            .then(r => r.json())
+            .then(data => {
+                expenses = data;
                 updateDashboard();
-            }
-        });
-
-        // --- 初始化儀表板 ---
-        function updateDashboard() {
-            updateSummary();
-            renderExpenseHistory();
+            });
         }
 
-        // 首次載入頁面
+        // ========= 8. 儀表板數據與歷史紀錄渲染 =========
+        function updateDashboard() {
+            // 總覽
+            let total = 0;
+            expenses.forEach(exp => {
+                const amt = exp.currency === 'EUR' ? exp.amount * exchangeRate : Number(exp.amount);
+                total += amt;
+            });
+            totalAmountDisplay.textContent = total.toFixed(0);
+
+            // 歷史紀錄
+            expenseHistoryList.innerHTML = '';
+            if (!expenses.length) {
+                expenseHistoryList.innerHTML = '<p class="text-gray-400 text-center">目前沒有任何分帳紀錄。</p>';
+            } else {
+                expenses.slice().reverse().forEach(exp => {
+                    const amt = exp.currency === 'EUR' ? exp.amount * exchangeRate : Number(exp.amount);
+                    const el = document.createElement('div');
+                    el.className = 'bg-gray-50 rounded p-2 mb-2';
+                    el.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <b>${exp.item}</b>
+                                <span class="text-gray-500">${exp.date}</span>
+                                <span class="text-gray-600">${exp.payer} 付了 ${exp.amount} ${exp.currency}</span>
+                            </div>
+                            <div>
+                                <span class="text-blue-600">分攤：${exp.splitters.join(', ')}</span>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-2">每人：${(amt/exp.splitters.length).toFixed(0)} 元</div>
+                    `;
+                    expenseHistoryList.appendChild(el);
+                });
+            }
+
+            // 個人結餘計算
+            const balances = {};
+            members.forEach(m => balances[m]=0);
+            expenses.forEach(exp => {
+                const amt = exp.currency === 'EUR' ? exp.amount * exchangeRate : Number(exp.amount);
+                balances[exp.payer] += amt;
+                exp.splitters.forEach(s => {
+                    balances[s] -= amt/exp.splitters.length;
+                });
+            });
+            summaryList.innerHTML = '';
+            members.forEach(m => {
+                const bal = balances[m];
+                const cls = bal>=0?'text-green-600':'text-red-600';
+                const txt = bal>=0?'收款':'付款';
+                summaryList.innerHTML += `
+                    <div class="flex justify-between items-center border-b py-2">
+                        <span class="font-bold">${m}</span>
+                        <span class="${cls}">${txt} ${Math.abs(bal).toFixed(0)} 元</span>
+                    </div>
+                `;
+            });
+        }
+
+        // ========= 9. 頁面初始化 =========
         document.addEventListener('DOMContentLoaded', () => {
             renderMembers();
-            // 在這裡，實際專案會發送 API 請求到後端來取得所有紀錄
-            // 例如：fetch('/api/getExpenses').then(res => res.json()).then(data => {
-            //   expenses = data;
-            //   updateDashboard();
-            // });
-            updateDashboard(); // 模擬呼叫
+            fetchExpensesFromSheet();
         });
-
     </script>
 </body>
 </html>
