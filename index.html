@@ -73,6 +73,8 @@
             opacity: 0; pointer-events: none; transition: opacity 0.4s;
         }
         .toast.show { opacity: 1; pointer-events: auto; }
+        .toggle-arrow { transition: transform .2s; }
+        .toggle-arrow.open { transform: rotate(180deg); }
     </style>
 </head>
 <body class="p-8">
@@ -133,14 +135,23 @@
             </div>
             <!-- 右側欄位 -->
             <div class="space-y-8">
-                <div class="card">
+                <div class="card mt-8">
+                    <h2 class="section-title">歷史紀錄</h2>
+                    <div id="expense-history-list" class="space-y-4 scroll-list"></div>
+                </div>
+                <div class="card mt-8">
+                    <h2 class="section-title">個人結餘</h2>
+                    <div id="summary-list" class="summary-grid"></div>
+                </div>
+                <!-- 成員管理，預設收合，放最下方 -->
+                <div class="card mt-8">
                     <div class="flex items-center justify-between cursor-pointer" id="toggle-members">
                         <h2 class="section-title mb-0">成員管理</h2>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500 toggle-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </div>
-                    <div id="members-content" class="space-y-2 mt-4">
+                    <div id="members-content" class="space-y-2 mt-4 hidden">
                         <div id="members-list" class="space-y-2 mb-4 scroll-list"></div>
                         <div class="flex space-x-2">
                             <input type="text" id="new-member-name" placeholder="新增成員姓名" class="w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
@@ -149,14 +160,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="card mt-8">
-            <h2 class="section-title">歷史紀錄</h2>
-            <div id="expense-history-list" class="space-y-4 scroll-list"></div>
-        </div>
-        <div class="card mt-8">
-            <h2 class="section-title">個人結餘</h2>
-            <div id="summary-list" class="summary-grid"></div>
         </div>
     </div>
     <script>
@@ -197,6 +200,7 @@
         const toggleMembersBtn = document.getElementById('toggle-members');
         const membersContent = document.getElementById('members-content');
         const rateDisplay = document.getElementById('rate-display');
+        const toggleArrow = toggleMembersBtn.querySelector('.toggle-arrow');
 
         function renderMembers() {
             membersListContainer.innerHTML = '';
@@ -241,9 +245,10 @@
             }
         });
 
+        // 成員管理區塊開關（預設收合，點擊展開/收合）
         toggleMembersBtn.addEventListener('click', () => {
             membersContent.classList.toggle('hidden');
-            toggleMembersBtn.querySelector('svg').classList.toggle('rotate-180');
+            toggleArrow.classList.toggle('open');
         });
 
         function renderPayerSelect() {
@@ -459,6 +464,16 @@
                 const rate = rates[exp.currency] || 35;
                 const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
                 const validSplitters = exp.splitters.filter(s => members.includes(s));
+                // 四捨五入
+                const roundedOriginal = Math.round(exp.amount);
+                const roundedTWD = Math.round(amt);
+
+                // 額外顯示換算金額（如果是歐元）
+                let currencyInfo = '';
+                if (exp.currency === 'EUR') {
+                    currencyInfo = `<span class="text-xs text-gray-400 ml-2">（約 ${roundedTWD.toLocaleString()} TWD）</span>`;
+                }
+
                 const card = document.createElement('div');
                 card.className = 'card space-y-2';
                 card.innerHTML = `
@@ -466,7 +481,9 @@
                         <div class="flex-grow">
                             <h3 class="font-bold text-gray-800">${exp.item}</h3>
                             <p class="text-sm text-gray-500">
-                                ${exp.date} &bull; ${exp.payer} 付了 <span class="font-semibold text-gray-800">${Math.round(exp.amount).toLocaleString()}</span> ${exp.currency}
+                                ${exp.date} &bull; ${exp.payer} 付了 
+                                <span class="font-semibold text-gray-800">${roundedOriginal.toLocaleString()}</span> ${exp.currency}
+                                ${currencyInfo}
                                 ${exp.created ? `&bull; <span class="text-xs text-gray-400">${exp.created}</span>` : ''}
                             </p>
                         </div>
