@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>旅行分帳儀表板</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes flow {
@@ -66,9 +65,18 @@
         .summary-grid { display: grid; grid-template-columns: 1fr; gap: 1.2rem; }
         @media (min-width: 768px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1200px) { .summary-grid { grid-template-columns: 1fr 1fr 1fr; } }
+        .toast {
+            position: fixed; right: 2rem; top: 2rem; z-index: 9999;
+            background: #fff; border-radius: 0.75rem; box-shadow: 0 2px 8px #0003;
+            color: #a87b7a; font-weight: bold; padding: 1rem 2rem; font-size: 1.1rem;
+            border: 1px solid #a87b7a;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s;
+        }
+        .toast.show { opacity: 1; pointer-events: auto; }
     </style>
 </head>
 <body class="p-8">
+    <div id="toast" class="toast"></div>
     <div class="container">
         <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center">旅行分帳儀表板</h1>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -97,7 +105,7 @@
                         <div>
                             <label for="amount" class="block text-sm font-medium text-gray-700">金額</label>
                             <div class="mt-1 relative rounded-md shadow-sm">
-                                <input type="number" id="amount" placeholder="金額" required class="block w-full rounded-md border-gray-300 pl-4 pr-16 p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <input type="number" id="amount" placeholder="金額" required min="0.01" step="0.01" class="block w-full rounded-md border-gray-300 pl-4 pr-16 p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <div class="absolute inset-y-0 right-0 flex items-center pr-2">
                                     <select id="currency" class="h-full rounded-md border-transparent bg-gray-50 text-gray-500 text-sm focus:ring-blue-500 focus:border-blue-500">
                                         <option value="TWD">TWD</option>
@@ -105,6 +113,7 @@
                                     </select>
                                 </div>
                             </div>
+                            <div id="rate-display" class="text-sm text-right mt-1 text-gray-500"></div>
                         </div>
                         <div>
                             <label for="payer" class="block text-sm font-medium text-gray-700">付款人</label>
@@ -152,14 +161,30 @@
     </div>
     <script>
         // 請填入你部署好的 Google Apps Script Web App 網址
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby9xgZm5xdZtolLtxPRTKdh29G71zFKKeul22v4F6cWbhhIMdZz773cQUdyTqYMTscr/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyCl_PEkQjg9pQ4LZVkGUeNkjDf8ZZ_6gaSIcpNzoqOMgJFldMFatjwclDQd7e_Mi1L/exec';
 
         let members = [
             '吳曉琪', '郭妍伶', '李美娟', '陳伯榕', '蘇慧真',
             'EMMA', '劉美媛', '黃淑芬', '黃學長'
         ];
         let expenses = [];
-        const exchangeRate = 35;
+        let rates = { TWD: 1, EUR: 35 };
+        // 儲存成員到 localStorage
+        function saveMembers() {
+            localStorage.setItem('members', JSON.stringify(members));
+        }
+        function loadMembers() {
+            const data = localStorage.getItem('members');
+            if (data) members = JSON.parse(data);
+        }
+
+        // Toast
+        function toast(msg, timeout = 2000) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), timeout);
+        }
 
         // DOM 元素
         const payerSelect = document.getElementById('payer');
@@ -174,6 +199,7 @@
         const expenseHistoryList = document.getElementById('expense-history-list');
         const toggleMembersBtn = document.getElementById('toggle-members');
         const membersContent = document.getElementById('members-content');
+        const rateDisplay = document.getElementById('rate-display');
 
         // 成員管理
         function renderMembers() {
@@ -185,7 +211,7 @@
                     <span class="text-sm font-medium">${member}</span>
                     <button class="delete-member-btn text-gray-400 hover:text-red-500 transition duration-150" data-name="${member}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.728-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
+                            <path fill-rule="evenodd" d="M6 8a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm2-6a2 2 0 00-2 2v12a2 2 0 002 2h4a2 2 0 002-2V4a2 2 0 00-2-2H8z" clip-rule="evenodd" />
                         </svg>
                     </button>
                 `;
@@ -194,6 +220,7 @@
             renderPayerSelect();
             renderSplittersCheckboxes();
             updateSummary();
+            saveMembers();
         }
 
         addMemberBtn.addEventListener('click', (e) => {
@@ -203,6 +230,7 @@
                 members.push(newName);
                 newMemberInput.value = '';
                 renderMembers();
+                toast(`已新增成員 ${newName}`);
             }
         });
 
@@ -210,11 +238,14 @@
             if (e.target.closest('.delete-member-btn')) {
                 const memberName = e.target.closest('.delete-member-btn').dataset.name;
                 members = members.filter(member => member !== memberName);
+                expenses = expenses.filter(exp => exp.payer !== memberName && !exp.splitters.includes(memberName));
                 renderMembers();
+                updateDashboard();
+                toast(`已移除成員 ${memberName}`);
             }
         });
 
-        // 成員管理區塊開關
+        // 成員管理區塊開關（預設展開）
         toggleMembersBtn.addEventListener('click', () => {
             membersContent.classList.toggle('hidden');
             toggleMembersBtn.querySelector('svg').classList.toggle('rotate-180');
@@ -227,8 +258,8 @@
         function renderSplittersCheckboxes() {
             splittersContainer.innerHTML = members.map(member => `
                 <div class="flex items-center">
-                    <input type="checkbox" id="splitter-${member}" name="splitters" value="${member}" class="splitter-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                    <label for="splitter-${member}" class="ml-2 text-sm text-gray-700">${member}</label>
+                    <input type="checkbox" id="splitter-${encodeURIComponent(member)}" name="splitters" value="${member}" class="splitter-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="splitter-${encodeURIComponent(member)}" class="ml-2 text-sm text-gray-700">${member}</label>
                 </div>
             `).join('');
         }
@@ -237,7 +268,34 @@
             checkboxes.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
         });
 
-        // 新增分帳紀錄（連接 Google Apps Script）
+        // 匯率顯示
+        document.getElementById('currency').addEventListener('change', async function() {
+            const val = this.value;
+            if (val === 'TWD') {
+                rateDisplay.textContent = '匯率：1 TWD = 1 TWD';
+            } else {
+                // 取得最新匯率
+                rateDisplay.textContent = '匯率查詢中...';
+                try {
+                    const r = await fetch(WEB_APP_URL, {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({action:'rate', currency:val})
+                    });
+                    const res = await r.json();
+                    if (res.success && res.rate) {
+                        rates[val] = res.rate;
+                        rateDisplay.textContent = `匯率：1 ${val} ≈ ${res.rate} TWD`;
+                    } else {
+                        rateDisplay.textContent = `匯率獲取失敗，預設 1 EUR = 35 TWD`;
+                    }
+                } catch(e) {
+                    rateDisplay.textContent = `匯率查詢失敗`;
+                }
+            }
+        });
+
+        // 新增分帳紀錄
         addExpenseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const date = document.getElementById('date').value;
@@ -248,8 +306,12 @@
             const splitterCheckboxes = document.querySelectorAll('input[name="splitters"]:checked');
             const splitters = Array.from(splitterCheckboxes).map(cb => cb.value);
 
+            if (isNaN(amount) || amount <= 0) {
+                toast('請輸入有效金額');
+                return;
+            }
             if (splitters.length === 0) {
-                alert('請選擇分攤人員');
+                toast('請選擇分攤人員');
                 return;
             }
             const newExpense = { date, item, amount, currency, payer, splitters };
@@ -264,25 +326,46 @@
                     headers: {'Content-Type':'application/json'},
                     body: JSON.stringify(newExpense)
                 });
-                if (!r.ok) throw new Error('伺服器錯誤');
+                const res = await r.json();
+                if (!r.ok || !res.success) throw new Error(res.message||'伺服器錯誤');
                 addExpenseForm.reset();
-                fetchExpensesFromSheet();
+                selectAllCheckbox.checked = false;
+                toast('已新增紀錄');
+                await fetchExpensesFromSheet();
             } catch (err) {
-                alert('新增失敗，請檢查網路或後端服務。');
+                toast('新增失敗，請檢查網路或後端服務。');
             } finally {
                 btn.disabled = false;
                 btn.textContent = '新增紀錄';
             }
         });
 
-        // 從 Google Sheet 取得分帳紀錄
-        function fetchExpensesFromSheet() {
-            fetch(WEB_APP_URL)
-            .then(r => r.json())
-            .then(data => {
-                expenses = data;
+        // 取得所有紀錄
+        async function fetchExpensesFromSheet() {
+            showLoading(expenseHistoryList, '分帳紀錄載入中...');
+            try {
+                const r = await fetch(WEB_APP_URL);
+                const data = await r.json();
+                if (Array.isArray(data)) {
+                    expenses = data;
+                } else if (data.expenses && Array.isArray(data.expenses)) {
+                    expenses = data.expenses;
+                } else {
+                    expenses = [];
+                }
                 updateDashboard();
-            });
+            } catch(e) {
+                showError(expenseHistoryList, '載入分帳紀錄失敗');
+                toast('載入分帳紀錄失敗');
+            }
+        }
+
+        // Loading/Error
+        function showLoading(ele, msg) {
+            ele.innerHTML = `<div class="text-gray-400 text-center py-8">${msg||'資料載入中...'}</div>`;
+        }
+        function showError(ele, msg) {
+            ele.innerHTML = `<div class="text-red-500 text-center py-8">${msg||'發生錯誤，請稍後再試'}</div>`;
         }
 
         // 儀表板邏輯
@@ -294,11 +377,15 @@
                 detailedTransactions[member] = { receivedFrom: [], paidTo: [] };
             });
             expenses.forEach(expense => {
-                const amt = expense.currency === 'EUR' ? expense.amount * exchangeRate : Number(expense.amount);
-                const shareAmount = amt / expense.splitters.length;
+                if (!members.includes(expense.payer)) return;
+                const validSplitters = expense.splitters.filter(s => members.includes(s));
+                if (validSplitters.length === 0) return;
+                const rate = rates[expense.currency] || 35;
+                const amt = expense.currency === 'TWD' ? Number(expense.amount) : Number(expense.amount) * rate;
+                const shareAmount = amt / validSplitters.length;
                 balances[expense.payer] += amt;
-                expense.splitters.forEach(splitter => { balances[splitter] -= shareAmount; });
-                expense.splitters.forEach(splitter => {
+                validSplitters.forEach(splitter => { balances[splitter] -= shareAmount; });
+                validSplitters.forEach(splitter => {
                     if (splitter !== expense.payer) {
                         detailedTransactions[splitter].paidTo.push({
                             to: expense.payer, item: expense.item, amount: shareAmount
@@ -318,8 +405,8 @@
             members.forEach(member => {
                 const balance = balances[member];
                 const balanceText = balance >= 0 ?
-                    `收款 <span class="font-semibold">${Math.abs(balance).toFixed(0)}</span> 元` :
-                    `付款 <span class="font-semibold">${Math.abs(balance).toFixed(0)}</span> 元`;
+                    `收款 <span class="font-semibold">${Math.abs(balance).toLocaleString()}</span> 元` :
+                    `付款 <span class="font-semibold">${Math.abs(balance).toLocaleString()}</span> 元`;
                 const balanceClass = balance >= 0 ? 'status-positive' : 'status-negative';
                 const card = document.createElement('div');
                 card.className = 'summary-card flex flex-col justify-between min-h-[110px]';
@@ -333,7 +420,7 @@
                     });
                 }
                 for (const target in paidTo) {
-                    paidToHtml += `<li>付款給 <b>${target}</b>：${paidTo[target].toFixed(0)} 元</li>`;
+                    paidToHtml += `<li>付款給 <b>${target}</b>：${paidTo[target].toLocaleString(undefined,{maximumFractionDigits:0})} 元</li>`;
                 }
                 let receivedFromHtml = '';
                 const receivedFrom = {};
@@ -344,7 +431,7 @@
                     });
                 }
                 for (const target in receivedFrom) {
-                    receivedFromHtml += `<li>收款自 <b>${target}</b>：${receivedFrom[target].toFixed(0)} 元</li>`;
+                    receivedFromHtml += `<li>收款自 <b>${target}</b>：${receivedFrom[target].toLocaleString(undefined,{maximumFractionDigits:0})} 元</li>`;
                 }
 
                 card.innerHTML = `
@@ -365,10 +452,11 @@
             });
             let total = 0;
             expenses.forEach(exp => {
-                const amt = exp.currency === 'EUR' ? exp.amount * exchangeRate : Number(exp.amount);
+                const rate = rates[exp.currency] || 35;
+                const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
                 total += amt;
             });
-            totalAmountDisplay.textContent = total.toFixed(0);
+            totalAmountDisplay.textContent = total.toLocaleString(undefined,{maximumFractionDigits:0});
         }
 
         function renderExpenseHistory() {
@@ -378,14 +466,19 @@
                 return;
             }
             expenses.slice().reverse().forEach(exp => {
-                const amt = exp.currency === 'EUR' ? exp.amount * exchangeRate : Number(exp.amount);
+                const rate = rates[exp.currency] || 35;
+                const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
+                const validSplitters = exp.splitters.filter(s => members.includes(s));
                 const card = document.createElement('div');
                 card.className = 'card space-y-2';
                 card.innerHTML = `
                     <div class="flex items-center justify-between">
                         <div class="flex-grow">
                             <h3 class="font-bold text-gray-800">${exp.item}</h3>
-                            <p class="text-sm text-gray-500">${exp.date} &bull; ${exp.payer} 付了 <span class="font-semibold text-gray-800">${exp.amount}</span> ${exp.currency}</p>
+                            <p class="text-sm text-gray-500">
+                                ${exp.date} &bull; ${exp.payer} 付了 <span class="font-semibold text-gray-800">${exp.amount}</span> ${exp.currency}
+                                ${exp.created ? `&bull; <span class="text-xs text-gray-400">${exp.created}</span>` : ''}
+                            </p>
                         </div>
                         <div class="flex items-center space-x-2">
                             <button class="toggle-details text-gray-500 hover:text-blue-500 transition duration-150">
@@ -393,13 +486,18 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
+                            <button class="delete-expense-btn text-gray-400 hover:text-red-500 transition duration-150" data-id="${exp.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M6 8a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm2-6a2 2 0 00-2 2v12a2 2 0 002 2h4a2 2 0 002-2V4a2 2 0 00-2-2H8z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
                     <div class="expense-details hidden space-y-2">
                         <h4 class="font-semibold text-gray-700">分攤明細 (每人)</h4>
                         <ul class="text-sm text-gray-600">
-                            ${exp.splitters.map(splitter => `
-                                <li>${splitter}: ${(amt / exp.splitters.length).toFixed(0)} 元</li>
+                            ${validSplitters.map(splitter => `
+                                <li>${splitter}: ${(amt / validSplitters.length).toLocaleString(undefined,{maximumFractionDigits:0})} 元</li>
                             `).join('')}
                         </ul>
                     </div>
@@ -407,12 +505,33 @@
                 expenseHistoryList.appendChild(card);
             });
         }
-        expenseHistoryList.addEventListener('click', (e) => {
+        expenseHistoryList.addEventListener('click', async (e) => {
             const toggleBtn = e.target.closest('.toggle-details');
             if (toggleBtn) {
                 const details = toggleBtn.closest('.card').querySelector('.expense-details');
                 details.classList.toggle('hidden');
                 return;
+            }
+            const delBtn = e.target.closest('.delete-expense-btn');
+            if (delBtn) {
+                if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+                const id = delBtn.dataset.id;
+                try {
+                    const r = await fetch(WEB_APP_URL, {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({action:'delete', id})
+                    });
+                    const res = await r.json();
+                    if (res.success) {
+                        toast('已刪除紀錄');
+                        await fetchExpensesFromSheet();
+                    } else {
+                        toast(res.message || '刪除失敗');
+                    }
+                } catch(e) {
+                    toast('刪除失敗');
+                }
             }
         });
 
@@ -421,9 +540,10 @@
             renderExpenseHistory();
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadMembers();
             renderMembers();
-            fetchExpensesFromSheet();
+            await fetchExpensesFromSheet();
         });
     </script>
 </body>
