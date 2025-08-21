@@ -3,30 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>旅行分帳儀表板（Google Sheets 版）</title>
+    <title>旅行分帳儀表板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
-        .container { max-width: 1000px; margin: auto; padding: 2rem; }
+        body { font-family: 'Inter', sans-serif; background: #edeadd; }
+        .container { max-width: 1200px; margin: auto; padding: 2rem; }
         .card { background: #fff; border-radius: 1rem; box-shadow: 0 2px 8px #0001; padding: 1.5rem; margin-bottom: 2rem; }
         .section-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; border-left: 4px solid #a87b7a; padding-left: 0.75rem; }
         .btn-primary { background: #a87b7a; color: #fff; font-weight: bold; border-radius: 2rem; padding: 0.75rem 2rem; }
         .btn-primary:hover { background: #946766; }
         .scroll-list { max-height: 300px; overflow-y: auto; }
+        .rotate-180 { transform: rotate(180deg); }
+        .toggleable { transition: max-height 0.3s, opacity 0.3s; overflow: hidden; }
+        .toggleable.hidden { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
+        .toggleable:not(.hidden) { opacity: 1; max-height: 1000px; }
+        .summary-card { background: #fff; border-radius: 1rem; box-shadow: 0 2px 8px #0001; padding: 1.25rem 1.5rem; margin-bottom: 1.2rem; }
+        .summary-grid { display: grid; grid-template-columns: 1fr; gap: 1.2rem; }
+        @media (min-width: 768px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1200px) { .summary-grid { grid-template-columns: 1fr 1fr 1fr; } }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 class="text-3xl text-center font-bold mb-6">旅行分帳儀表板</h1>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- 新增分帳表單 -->
             <div>
                 <div class="card">
                     <h2 class="section-title">新增分帳紀錄</h2>
                     <form id="add-expense-form" class="space-y-4">
                         <div>
                             <label for="date" class="block text-sm">日期</label>
-                            <input type="date" id="date" required class="w-full p-2 border rounded">
+                            <input type="date" id="date" required class="w-full p-2 border rounded" placeholder="yyyy/MM/dd">
                         </div>
                         <div>
                             <label for="item" class="block text-sm">項目內容</label>
@@ -49,22 +56,31 @@
                         </div>
                         <div>
                             <label class="block text-sm mb-2">分攤人員</label>
+                            <div class="flex items-center mb-2">
+                                <input type="checkbox" id="split-all" class="mr-2">
+                                <label for="split-all" class="text-sm text-gray-600">全部</label>
+                            </div>
                             <div id="splitters-container" class="flex flex-wrap gap-2"></div>
                         </div>
                         <button type="submit" class="btn-primary w-full">新增紀錄</button>
                     </form>
                 </div>
-                <!-- 成員管理 -->
                 <div class="card">
-                    <h2 class="section-title">成員管理</h2>
-                    <div id="members-list" class="space-y-2 mb-4"></div>
-                    <div class="flex gap-2">
-                        <input type="text" id="new-member-name" placeholder="新增成員姓名" class="flex-grow p-2 border rounded">
-                        <button id="add-member-btn" class="btn-primary">新增</button>
+                    <div class="flex items-center justify-between cursor-pointer" id="toggle-members">
+                        <h2 class="section-title mb-0">成員管理</h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                    <div id="members-content" class="space-y-2 mt-4 toggleable hidden">
+                        <div id="members-list" class="space-y-2 mb-4"></div>
+                        <div class="flex gap-2">
+                            <input type="text" id="new-member-name" placeholder="新增成員姓名" class="flex-grow p-2 border rounded">
+                            <button id="add-member-btn" class="btn-primary">新增</button>
+                        </div>
                     </div>
                 </div>
             </div>
-            <!-- 儀表板與歷史紀錄 -->
             <div>
                 <div class="card">
                     <h2 class="section-title">總覽</h2>
@@ -76,16 +92,13 @@
                 </div>
                 <div class="card">
                     <h2 class="section-title">個人結餘</h2>
-                    <div id="summary-list"></div>
+                    <div id="summary-list" class="pt-2"></div>
                 </div>
             </div>
         </div>
     </div>
     <script>
-        // ========= 1. 設定 Google Apps Script Web App API =========
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzt9KKwBuliXT1hqXFqg645ouTI_W4_K4UpkrOA05t1m6uHjC7FPvsHKMgkG4LF-V8/exec'; // <-- 換成你的 Google Apps Script Web App 部署網址
-
-        // ========= 2. 初始化成員 =========
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzt9KKwBuliXT1hqXFqg645ouTI_W4_K4UpkrOA05t1m6uHjC7FPvsHKMgkG4LF-V8/exec'; // 換成你的 Google Apps Script Web App URL
         let members = [
             '吳曉琪', '郭妍伶', '李美娟', '陳伯榕', '蘇慧真',
             'EMMA', '劉美媛', '黃淑芬', '黃學長'
@@ -93,9 +106,9 @@
         let expenses = [];
         const exchangeRate = 35;
 
-        // ========= 3. DOM 快取 =========
         const payerSelect = document.getElementById('payer');
         const splittersContainer = document.getElementById('splitters-container');
+        const splitAllCheckbox = document.getElementById('split-all');
         const membersListContainer = document.getElementById('members-list');
         const newMemberInput = document.getElementById('new-member-name');
         const addMemberBtn = document.getElementById('add-member-btn');
@@ -103,8 +116,14 @@
         const summaryList = document.getElementById('summary-list');
         const totalAmountDisplay = document.getElementById('total-amount-display');
         const expenseHistoryList = document.getElementById('expense-history-list');
+        const toggleMembersBtn = document.getElementById('toggle-members');
+        const membersContent = document.getElementById('members-content');
 
-        // ========= 4. 成員管理 =========
+        toggleMembersBtn.addEventListener('click', () => {
+            membersContent.classList.toggle('hidden');
+            toggleMembersBtn.querySelector('svg').classList.toggle('rotate-180');
+        });
+
         function renderMembers() {
             membersListContainer.innerHTML = '';
             members.forEach(member => {
@@ -135,20 +154,28 @@
             }
         });
 
-        // ========= 5. 表單動態成員選擇 =========
         function renderPayerSelect() {
             payerSelect.innerHTML = members.map(m => `<option value="${m}">${m}</option>`).join('');
         }
         function renderSplittersCheckboxes() {
             splittersContainer.innerHTML = members.map(m => `
                 <label class="flex items-center gap-1">
-                    <input type="checkbox" name="splitters" value="${m}">
+                    <input type="checkbox" name="splitters" value="${m}" class="splitter-checkbox">
                     ${m}
                 </label>
             `).join('');
+            splitAllCheckbox.checked = false;
         }
+        splitAllCheckbox.addEventListener('change', () => {
+            document.querySelectorAll('.splitter-checkbox').forEach(cb => {
+                cb.checked = splitAllCheckbox.checked;
+            });
+        });
+        splittersContainer.addEventListener('change', () => {
+            const allChecked = Array.from(document.querySelectorAll('.splitter-checkbox')).every(cb => cb.checked);
+            splitAllCheckbox.checked = allChecked;
+        });
 
-        // ========= 6. 新增分帳紀錄（送出到 Google Sheet） =========
         addExpenseForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const date = document.getElementById('date').value;
@@ -158,7 +185,6 @@
             const payer = payerSelect.value;
             const splitters = Array.from(document.querySelectorAll('input[name="splitters"]:checked')).map(cb => cb.value);
             if (!splitters.length) return alert('請選擇分攤人員');
-            // 送出 API
             const newExpense = { date, item, amount, currency, payer, splitters };
             fetch(WEB_APP_URL, {
                 method: 'POST',
@@ -172,7 +198,6 @@
             });
         });
 
-        // ========= 7. 取得所有分帳紀錄（從 Google Sheet） =========
         function fetchExpensesFromSheet() {
             fetch(WEB_APP_URL)
             .then(r => r.json())
@@ -182,9 +207,9 @@
             });
         }
 
-        // ========= 8. 儀表板數據與歷史紀錄渲染 =========
+        // 個人結餘卡片渲染（即使沒資料也會有每個人卡片）
         function updateDashboard() {
-            // 總覽
+            // 總支出
             let total = 0;
             expenses.forEach(exp => {
                 const amt = exp.currency === 'EUR' ? exp.amount * exchangeRate : Number(exp.amount);
@@ -218,31 +243,83 @@
                 });
             }
 
-            // 個人結餘計算
+            // 個人結餘卡片（無論有無分帳紀錄都渲染）
             const balances = {};
-            members.forEach(m => balances[m]=0);
-            expenses.forEach(exp => {
-                const amt = exp.currency === 'EUR' ? exp.amount * exchangeRate : Number(exp.amount);
-                balances[exp.payer] += amt;
-                exp.splitters.forEach(s => {
-                    balances[s] -= amt/exp.splitters.length;
-                });
-            });
-            summaryList.innerHTML = '';
+            const transactions = {};
             members.forEach(m => {
-                const bal = balances[m];
-                const cls = bal>=0?'text-green-600':'text-red-600';
-                const txt = bal>=0?'收款':'付款';
-                summaryList.innerHTML += `
-                    <div class="flex justify-between items-center border-b py-2">
-                        <span class="font-bold">${m}</span>
-                        <span class="${cls}">${txt} ${Math.abs(bal).toFixed(0)} 元</span>
+                balances[m] = 0;
+                transactions[m] = { paidTo: {}, receivedFrom: {} };
+            });
+            if (expenses.length) {
+                expenses.forEach(exp => {
+                    const amt = exp.currency === 'EUR' ? exp.amount * exchangeRate : Number(exp.amount);
+                    balances[exp.payer] += amt;
+                    exp.splitters.forEach(s => {
+                        balances[s] -= amt/exp.splitters.length;
+                    });
+                    exp.splitters.forEach(splitter => {
+                        if (splitter !== exp.payer) {
+                            if (!transactions[splitter].paidTo[exp.payer]) transactions[splitter].paidTo[exp.payer] = 0;
+                            transactions[splitter].paidTo[exp.payer] += amt/exp.splitters.length;
+                            if (!transactions[exp.payer].receivedFrom[splitter]) transactions[exp.payer].receivedFrom[splitter] = 0;
+                            transactions[exp.payer].receivedFrom[splitter] += amt/exp.splitters.length;
+                        }
+                    });
+                });
+            }
+
+            summaryList.innerHTML = '';
+            const grid = document.createElement('div');
+            grid.className = 'summary-grid';
+            members.forEach((member, idx) => {
+                const balance = balances[member] || 0;
+                const balanceText = balance >= 0 ? `應收` : `應付`;
+                const balanceClass = balance >= 0 ? 'text-green-500' : 'text-red-500';
+
+                let paidToHtml = '';
+                for (const target in transactions[member].paidTo) {
+                    paidToHtml += `<li>付款給 <b>${target}</b>：${transactions[member].paidTo[target].toFixed(0)} 元</li>`;
+                }
+                let receivedFromHtml = '';
+                for (const target in transactions[member].receivedFrom) {
+                    receivedFromHtml += `<li>收款自 <b>${target}</b>：${transactions[member].receivedFrom[target].toFixed(0)} 元</li>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'summary-card flex flex-col justify-between min-h-[110px]';
+                card.innerHTML = `
+                  <div class="flex items-center justify-between">
+                    <div class="font-bold text-lg">${member}</div>
+                    <div class="flex items-center gap-2">
+                      <span class="${balanceClass} font-semibold">${balanceText} <span class="font-bold">${Math.abs(balance).toFixed(0)}</span> 元</span>
+                      <button class="toggle-details text-gray-500 hover:text-blue-600 transition rounded-full" aria-label="展開明細">
+                        <svg class="w-6 h-6 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
                     </div>
+                  </div>
+                  <div class="summary-details hidden mt-4">
+                    <p class="font-semibold text-gray-700 mb-1">明細：</p>
+                    ${paidToHtml ? `<p class="text-sm text-gray-600 mb-1">要付款：</p><ul class="list-disc list-inside text-sm text-gray-600 mb-2">${paidToHtml}</ul>` : ''}
+                    ${receivedFromHtml ? `<p class="text-sm text-gray-600 mb-1">要收款：</p><ul class="list-disc list-inside text-sm text-gray-600">${receivedFromHtml}</ul>` : ''}
+                    ${(!paidToHtml && !receivedFromHtml) ? '<p class="text-gray-400 text-sm">結算已清。</p>' : ''}
+                  </div>
                 `;
+                grid.appendChild(card);
+            });
+            summaryList.appendChild(grid);
+
+            summaryList.querySelectorAll('.toggle-details').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const card = btn.closest('div');
+                    const details = card.parentElement.querySelector('.summary-details');
+                    btn.querySelector('svg').classList.toggle('rotate-180');
+                    details.classList.toggle('hidden');
+                });
             });
         }
 
-        // ========= 9. 頁面初始化 =========
         document.addEventListener('DOMContentLoaded', () => {
             renderMembers();
             fetchExpensesFromSheet();
