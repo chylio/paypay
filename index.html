@@ -393,10 +393,11 @@
             summaryList.innerHTML = '';
             members.forEach(member => {
                 const balance = balances[member];
-                const balanceText = balance >= 0 ?
-                    `收款 <span class="font-semibold">${Math.abs(balance).toLocaleString()}</span> 元` :
-                    `付款 <span class="font-semibold">${Math.abs(balance).toLocaleString()}</span> 元`;
-                const balanceClass = balance >= 0 ? 'status-positive' : 'status-negative';
+                const roundedBalance = Math.round(balance);
+                const balanceText = roundedBalance >= 0 ?
+                    `收款 <span class="font-semibold">${Math.abs(roundedBalance).toLocaleString()}</span> 元` :
+                    `付款 <span class="font-semibold">${Math.abs(roundedBalance).toLocaleString()}</span> 元`;
+                const balanceClass = roundedBalance >= 0 ? 'status-positive' : 'status-negative';
                 const card = document.createElement('div');
                 card.className = 'summary-card flex flex-col justify-between min-h-[110px]';
 
@@ -409,7 +410,7 @@
                     });
                 }
                 for (const target in paidTo) {
-                    paidToHtml += `<li>付款給 <b>${target}</b>：${paidTo[target].toLocaleString(undefined,{maximumFractionDigits:0})} 元</li>`;
+                    paidToHtml += `<li>付款給 <b>${target}</b>：${Math.round(paidTo[target]).toLocaleString()} 元</li>`;
                 }
                 let receivedFromHtml = '';
                 const receivedFrom = {};
@@ -420,7 +421,7 @@
                     });
                 }
                 for (const target in receivedFrom) {
-                    receivedFromHtml += `<li>收款自 <b>${target}</b>：${receivedFrom[target].toLocaleString(undefined,{maximumFractionDigits:0})} 元</li>`;
+                    receivedFromHtml += `<li>收款自 <b>${target}</b>：${Math.round(receivedFrom[target]).toLocaleString()} 元</li>`;
                 }
 
                 card.innerHTML = `
@@ -445,7 +446,7 @@
                 const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
                 total += amt;
             });
-            totalAmountDisplay.textContent = total.toLocaleString(undefined,{maximumFractionDigits:0});
+            totalAmountDisplay.textContent = Math.round(total).toLocaleString();
         }
 
         function renderExpenseHistory() {
@@ -465,7 +466,7 @@
                         <div class="flex-grow">
                             <h3 class="font-bold text-gray-800">${exp.item}</h3>
                             <p class="text-sm text-gray-500">
-                                ${exp.date} &bull; ${exp.payer} 付了 <span class="font-semibold text-gray-800">${exp.amount}</span> ${exp.currency}
+                                ${exp.date} &bull; ${exp.payer} 付了 <span class="font-semibold text-gray-800">${Math.round(exp.amount).toLocaleString()}</span> ${exp.currency}
                                 ${exp.created ? `&bull; <span class="text-xs text-gray-400">${exp.created}</span>` : ''}
                             </p>
                         </div>
@@ -475,13 +476,18 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
+                            <button class="delete-expense-btn text-gray-400 hover:text-red-500 transition duration-150" data-id="${exp.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M6 8a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm2-6a2 2 0 00-2 2v12a2 2 0 002 2h4a2 2 0 002-2V4a2 2 0 00-2-2H8z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
                     <div class="expense-details hidden space-y-2">
                         <h4 class="font-semibold text-gray-700">分攤明細 (每人)</h4>
                         <ul class="text-sm text-gray-600">
                             ${validSplitters.map(splitter => `
-                                <li>${splitter}: ${(amt / validSplitters.length).toLocaleString(undefined,{maximumFractionDigits:0})} 元</li>
+                                <li>${splitter}: ${Math.round(amt / validSplitters.length).toLocaleString()} 元</li>
                             `).join('')}
                         </ul>
                     </div>
@@ -489,12 +495,32 @@
                 expenseHistoryList.appendChild(card);
             });
         }
-        expenseHistoryList.addEventListener('click', (e) => {
+
+        // 事件委派：展開明細及刪除紀錄
+        expenseHistoryList.addEventListener('click', async (e) => {
             const toggleBtn = e.target.closest('.toggle-details');
             if (toggleBtn) {
                 const details = toggleBtn.closest('.card').querySelector('.expense-details');
                 details.classList.toggle('hidden');
                 return;
+            }
+            const delBtn = e.target.closest('.delete-expense-btn');
+            if (delBtn) {
+                if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+                const id = delBtn.dataset.id;
+                try {
+                    // GET 刪除API：action=delete&id=xxx
+                    const r = await fetch(`${WEB_APP_URL}?action=delete&id=${encodeURIComponent(id)}`);
+                    const res = await r.json();
+                    if (res.success) {
+                        toast('已刪除紀錄');
+                        await fetchExpensesFromSheet();
+                    } else {
+                        toast(res.message || '刪除失敗');
+                    }
+                } catch(e) {
+                    toast('刪除失敗');
+                }
             }
         });
 
