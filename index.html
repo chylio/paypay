@@ -160,8 +160,7 @@
         </div>
     </div>
     <script>
-        // 請填入你部署好的 Google Apps Script Web App 網址
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyCl_PEkQjg9pQ4LZVkGUeNkjDf8ZZ_6gaSIcpNzoqOMgJFldMFatjwclDQd7e_Mi1L/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwPZ8ol3dE528vKfFy050067_jXGTtensKngXr4kuuMronvkGsqVGQ5FPF09WtOUYYn/exec';
 
         let members = [
             '吳曉琪', '郭妍伶', '李美娟', '陳伯榕', '蘇慧真',
@@ -169,7 +168,7 @@
         ];
         let expenses = [];
         let rates = { TWD: 1, EUR: 35 };
-        // 儲存成員到 localStorage
+
         function saveMembers() {
             localStorage.setItem('members', JSON.stringify(members));
         }
@@ -178,7 +177,6 @@
             if (data) members = JSON.parse(data);
         }
 
-        // Toast
         function toast(msg, timeout = 2000) {
             const t = document.getElementById('toast');
             t.textContent = msg;
@@ -186,7 +184,6 @@
             setTimeout(() => t.classList.remove('show'), timeout);
         }
 
-        // DOM 元素
         const payerSelect = document.getElementById('payer');
         const splittersContainer = document.getElementById('splitters-container');
         const membersListContainer = document.getElementById('members-list');
@@ -201,7 +198,6 @@
         const membersContent = document.getElementById('members-content');
         const rateDisplay = document.getElementById('rate-display');
 
-        // 成員管理
         function renderMembers() {
             membersListContainer.innerHTML = '';
             members.forEach(member => {
@@ -245,13 +241,11 @@
             }
         });
 
-        // 成員管理區塊開關（預設展開）
         toggleMembersBtn.addEventListener('click', () => {
             membersContent.classList.toggle('hidden');
             toggleMembersBtn.querySelector('svg').classList.toggle('rotate-180');
         });
 
-        // 表單功能
         function renderPayerSelect() {
             payerSelect.innerHTML = members.map(member => `<option value="${member}">${member}</option>`).join('');
         }
@@ -268,20 +262,16 @@
             checkboxes.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
         });
 
-        // 匯率顯示
         document.getElementById('currency').addEventListener('change', async function() {
             const val = this.value;
             if (val === 'TWD') {
                 rateDisplay.textContent = '匯率：1 TWD = 1 TWD';
             } else {
-                // 取得最新匯率
                 rateDisplay.textContent = '匯率查詢中...';
                 try {
-                    const r = await fetch(WEB_APP_URL, {
-                        method: 'POST',
-                        headers: {'Content-Type':'application/json'},
-                        body: JSON.stringify({action:'rate', currency:val})
-                    });
+                    // GET 改 action=rate&currency=EUR
+                    const url = `${WEB_APP_URL}?action=rate&currency=${encodeURIComponent(val)}`;
+                    const r = await fetch(url);
                     const res = await r.json();
                     if (res.success && res.rate) {
                         rates[val] = res.rate;
@@ -295,7 +285,6 @@
             }
         });
 
-        // 新增分帳紀錄
         addExpenseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const date = document.getElementById('date').value;
@@ -314,18 +303,21 @@
                 toast('請選擇分攤人員');
                 return;
             }
-            const newExpense = { date, item, amount, currency, payer, splitters };
-
-            // 按鈕 loading 效果
+            // GET 改 action=add&date=...&item=...&amount=...&currency=...&payer=...&splitters=...
+            const params = new URLSearchParams({
+                action: 'add',
+                date,
+                item,
+                amount,
+                currency,
+                payer,
+                splitters: splitters.join(',')
+            });
             const btn = addExpenseForm.querySelector('button[type="submit"]');
             btn.disabled = true;
             btn.textContent = '送出中...';
             try {
-                const r = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify(newExpense)
-                });
+                const r = await fetch(`${WEB_APP_URL}?${params.toString()}`);
                 const res = await r.json();
                 if (!r.ok || !res.success) throw new Error(res.message||'伺服器錯誤');
                 addExpenseForm.reset();
@@ -340,7 +332,6 @@
             }
         });
 
-        // 取得所有紀錄
         async function fetchExpensesFromSheet() {
             showLoading(expenseHistoryList, '分帳紀錄載入中...');
             try {
@@ -360,7 +351,6 @@
             }
         }
 
-        // Loading/Error
         function showLoading(ele, msg) {
             ele.innerHTML = `<div class="text-gray-400 text-center py-8">${msg||'資料載入中...'}</div>`;
         }
@@ -368,7 +358,6 @@
             ele.innerHTML = `<div class="text-red-500 text-center py-8">${msg||'發生錯誤，請稍後再試'}</div>`;
         }
 
-        // 儀表板邏輯
         function calculateSummary() {
             const balances = {};
             const detailedTransactions = {};
@@ -486,11 +475,6 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
-                            <button class="delete-expense-btn text-gray-400 hover:text-red-500 transition duration-150" data-id="${exp.id}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M6 8a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm2-6a2 2 0 00-2 2v12a2 2 0 002 2h4a2 2 0 002-2V4a2 2 0 00-2-2H8z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
                         </div>
                     </div>
                     <div class="expense-details hidden space-y-2">
@@ -505,33 +489,12 @@
                 expenseHistoryList.appendChild(card);
             });
         }
-        expenseHistoryList.addEventListener('click', async (e) => {
+        expenseHistoryList.addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('.toggle-details');
             if (toggleBtn) {
                 const details = toggleBtn.closest('.card').querySelector('.expense-details');
                 details.classList.toggle('hidden');
                 return;
-            }
-            const delBtn = e.target.closest('.delete-expense-btn');
-            if (delBtn) {
-                if (!confirm('確定要刪除這筆紀錄嗎？')) return;
-                const id = delBtn.dataset.id;
-                try {
-                    const r = await fetch(WEB_APP_URL, {
-                        method: 'POST',
-                        headers: {'Content-Type':'application/json'},
-                        body: JSON.stringify({action:'delete', id})
-                    });
-                    const res = await r.json();
-                    if (res.success) {
-                        toast('已刪除紀錄');
-                        await fetchExpensesFromSheet();
-                    } else {
-                        toast(res.message || '刪除失敗');
-                    }
-                } catch(e) {
-                    toast('刪除失敗');
-                }
             }
         });
 
