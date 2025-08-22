@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>西班牙費用分攤表</title>
+    <title>費用分攤表</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes flow {
@@ -75,19 +75,12 @@
         .toast.show { opacity: 1; pointer-events: auto; }
         .toggle-arrow { transition: transform .2s; }
         .toggle-arrow.open { transform: rotate(180deg); }
-        /* spinner for loading */
-        .spinner {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body class="p-8">
     <div id="toast" class="toast"></div>
     <div class="container">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center">西班牙費用分攤表</h1>
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center">費用分攤表</h1>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- 左側欄位 -->
             <div class="lg:col-span-2 space-y-8">
@@ -109,12 +102,12 @@
                         </div>
                         <div>
                             <label for="item" class="block text-sm font-medium text-gray-700">項目內容</label>
-                            <input type="text" id="item" placeholder="例如：晚餐, 車票" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:bord[...]
+                            <input type="text" id="item" placeholder="例如：晚餐, 車票" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
                             <label for="amount" class="block text-sm font-medium text-gray-700">金額</label>
                             <div class="mt-1 relative rounded-md shadow-sm">
-                                <input type="number" id="amount" placeholder="金額" required min="0.01" step="0.01" class="block w-full rounded-md border-gray-300 pl-4 pr-16 p-2 focus:ring-blue-500 [...]
+                                <input type="number" id="amount" placeholder="金額" required min="0.01" step="0.01" class="block w-full rounded-md border-gray-300 pl-4 pr-16 p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <div class="absolute inset-y-0 right-0 flex items-center pr-2">
                                     <select id="currency" class="h-full rounded-md border-transparent bg-gray-50 text-gray-500 text-sm focus:ring-blue-500 focus:border-blue-500">
                                         <option value="TWD">TWD</option>
@@ -264,324 +257,7 @@
         function renderSplittersCheckboxes() {
             splittersContainer.innerHTML = members.map(member => `
                 <div class="flex items-center">
-                    <input type="checkbox" id="splitter-${encodeURIComponent(member)}" name="splitters" value="${member}" class="splitter-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:r[...]
+                    <input type="checkbox" id="splitter-${encodeURIComponent(member)}" name="splitters" value="${member}" class="splitter-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                     <label for="splitter-${encodeURIComponent(member)}" class="ml-2 text-sm text-gray-700">${member}</label>
                 </div>
             `).join('');
-        }
-        selectAllCheckbox.addEventListener('change', () => {
-            const checkboxes = document.querySelectorAll('.splitter-checkbox');
-            checkboxes.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
-        });
-
-        document.getElementById('currency').addEventListener('change', async function() {
-            const val = this.value;
-            if (val === 'TWD') {
-                rateDisplay.textContent = '匯率：1 TWD = 1 TWD';
-            } else {
-                rateDisplay.textContent = '匯率查詢中...';
-                try {
-                    // GET 改 action=rate&currency=EUR
-                    const url = `${WEB_APP_URL}?action=rate&currency=${encodeURIComponent(val)}`;
-                    const r = await fetch(url);
-                    const res = await r.json();
-                    if (res.success && res.rate) {
-                        rates[val] = res.rate;
-                        rateDisplay.textContent = `匯率：1 ${val} ≈ ${res.rate} TWD`;
-                    } else {
-                        rateDisplay.textContent = `匯率獲取失敗，預設 1 EUR = 35 TWD`;
-                    }
-                } catch(e) {
-                    rateDisplay.textContent = `匯率查詢失敗`;
-                }
-            }
-        });
-
-        addExpenseForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const date = document.getElementById('date').value;
-            const item = document.getElementById('item').value;
-            const amount = parseFloat(document.getElementById('amount').value);
-            const currency = document.getElementById('currency').value;
-            const payer = document.getElementById('payer').value;
-            const splitterCheckboxes = document.querySelectorAll('input[name="splitters"]:checked');
-            const splitters = Array.from(splitterCheckboxes).map(cb => cb.value);
-
-            if (isNaN(amount) || amount <= 0) {
-                toast('請輸入有效金額');
-                return;
-            }
-            if (splitters.length === 0) {
-                toast('請選擇分攤人員');
-                return;
-            }
-            // GET 改 action=add&date=...&item=...&amount=...&currency=...&payer=...&splitters=...
-            const params = new URLSearchParams({
-                action: 'add',
-                date,
-                item,
-                amount,
-                currency,
-                payer,
-                splitters: splitters.join(',')
-            });
-            const btn = addExpenseForm.querySelector('button[type="submit"]');
-            btn.disabled = true;
-            btn.textContent = '送出中...';
-            try {
-                const r = await fetch(`${WEB_APP_URL}?${params.toString()}`);
-                const res = await r.json();
-                if (!r.ok || !res.success) throw new Error(res.message||'伺服器錯誤');
-                addExpenseForm.reset();
-                selectAllCheckbox.checked = false;
-                toast('已新增紀錄');
-                await fetchExpensesFromSheet();
-            } catch (err) {
-                toast('新增失敗，請檢查網路或後端服務。');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '新增紀錄';
-            }
-        });
-
-        // --- 優化：快取機制 ---
-        function loadCachedExpenses() {
-            const data = localStorage.getItem('expenses');
-            if (data) {
-                try {
-                    expenses = JSON.parse(data);
-                    updateDashboard();
-                } catch(e) {}
-            }
-        }
-
-        // --- 優化：showLoading 加入 spinner動畫 ---
-        function showLoading(ele, msg) {
-            ele.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-8 text-gray-400">
-                    <svg class="spinner h-8 w-8 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                    </svg>
-                    ${msg||'資料載入中...'}
-                </div>`;
-        }
-        function showError(ele, msg) {
-            ele.innerHTML = `<div class="text-red-500 text-center py-8">${msg||'發生錯誤，請稍後再試'}</div>`;
-        }
-
-        async function fetchExpensesFromSheet() {
-            showLoading(expenseHistoryList, '分帳紀錄載入中...');
-            try {
-                const r = await fetch(WEB_APP_URL);
-                const data = await r.json();
-                if (Array.isArray(data)) {
-                    expenses = data;
-                } else if (data.expenses && Array.isArray(data.expenses)) {
-                    expenses = data.expenses;
-                } else {
-                    expenses = [];
-                }
-                // --- 優化：存進 localStorage 快取 ---
-                localStorage.setItem('expenses', JSON.stringify(expenses));
-                updateDashboard();
-            } catch(e) {
-                showError(expenseHistoryList, '載入分帳紀錄失敗');
-                toast('載入分帳紀錄失敗');
-            }
-        }
-
-        function calculateSummary() {
-            const balances = {};
-            const detailedTransactions = {};
-            members.forEach(member => {
-                balances[member] = 0;
-                detailedTransactions[member] = { receivedFrom: [], paidTo: [] };
-            });
-            expenses.forEach(expense => {
-                if (!members.includes(expense.payer)) return;
-                const validSplitters = expense.splitters.filter(s => members.includes(s));
-                if (validSplitters.length === 0) return;
-                const rate = rates[expense.currency] || 35;
-                const amt = expense.currency === 'TWD' ? Number(expense.amount) : Number(expense.amount) * rate;
-                const shareAmount = amt / validSplitters.length;
-                balances[expense.payer] += amt;
-                validSplitters.forEach(splitter => { balances[splitter] -= shareAmount; });
-                validSplitters.forEach(splitter => {
-                    if (splitter !== expense.payer) {
-                        detailedTransactions[splitter].paidTo.push({
-                            to: expense.payer, item: expense.item, amount: shareAmount
-                        });
-                        detailedTransactions[expense.payer].receivedFrom.push({
-                            from: splitter, item: expense.item, amount: shareAmount
-                        });
-                    }
-                });
-            });
-            return { balances, detailedTransactions };
-        }
-
-        function updateSummary() {
-            const { balances, detailedTransactions } = calculateSummary();
-            summaryList.innerHTML = '';
-            members.forEach(member => {
-                const balance = balances[member];
-                const roundedBalance = Math.round(balance);
-                const balanceText = roundedBalance >= 0 ?
-                    `收款 <span class="font-semibold">${Math.abs(roundedBalance).toLocaleString()}</span> 元` :
-                    `付款 <span class="font-semibold">${Math.abs(roundedBalance).toLocaleString()}</span> 元`;
-                const balanceClass = roundedBalance >= 0 ? 'status-positive' : 'status-negative';
-                const card = document.createElement('div');
-                card.className = 'summary-card flex flex-col justify-between min-h-[110px]';
-
-                let paidToHtml = '';
-                const paidTo = {};
-                if (detailedTransactions[member]?.paidTo) {
-                    detailedTransactions[member].paidTo.forEach(item => {
-                        if (!paidTo[item.to]) paidTo[item.to] = 0;
-                        paidTo[item.to] += item.amount;
-                    });
-                }
-                for (const target in paidTo) {
-                    paidToHtml += `<li>付款給 <b>${target}</b>：${Math.round(paidTo[target]).toLocaleString()} 元</li>`;
-                }
-                let receivedFromHtml = '';
-                const receivedFrom = {};
-                if (detailedTransactions[member]?.receivedFrom) {
-                    detailedTransactions[member].receivedFrom.forEach(item => {
-                        if (!receivedFrom[item.from]) receivedFrom[item.from] = 0;
-                        receivedFrom[item.from] += item.amount;
-                    });
-                }
-                for (const target in receivedFrom) {
-                    receivedFromHtml += `<li>收款自 <b>${target}</b>：${Math.round(receivedFrom[target]).toLocaleString()} 元</li>`;
-                }
-
-                card.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="font-bold text-lg">${member}</div>
-                        <div class="flex items-center gap-2">
-                            <span class="${balanceClass} font-semibold">${balanceText}</span>
-                        </div>
-                    </div>
-                    <div class="summary-details mt-4">
-                        <p class="font-semibold text-gray-700 mb-1">明細：</p>
-                        ${paidToHtml ? `<p class="text-sm text-gray-600 mb-1">要付款：</p><ul class="list-disc list-inside text-sm text-gray-600 mb-2">${paidToHtml}</ul>` : ''}
-                        ${receivedFromHtml ? `<p class="text-sm text-gray-600 mb-1">要收款：</p><ul class="list-disc list-inside text-sm text-gray-600">${receivedFromHtml}</ul>` : ''}
-                        ${(!paidToHtml && !receivedFromHtml) ? '<p class="text-gray-400 text-sm">結算已清。</p>' : ''}
-                    </div>
-                `;
-                summaryList.appendChild(card);
-            });
-            let total = 0;
-            expenses.forEach(exp => {
-                const rate = rates[exp.currency] || 35;
-                const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
-                total += amt;
-            });
-            totalAmountDisplay.textContent = Math.round(total).toLocaleString();
-        }
-
-        function renderExpenseHistory() {
-            expenseHistoryList.innerHTML = '';
-            if (!expenses.length) {
-                expenseHistoryList.innerHTML = '<p class="text-gray-500 text-center">目前沒有任何分帳紀錄。</p>';
-                return;
-            }
-            expenses.slice().reverse().forEach(exp => {
-                const rate = rates[exp.currency] || 35;
-                const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
-                const validSplitters = exp.splitters.filter(s => members.includes(s));
-                // 四捨五入
-                const roundedOriginal = Math.round(exp.amount);
-                const roundedTWD = Math.round(amt);
-
-                // 額外顯示換算金額（如果是歐元）
-                let currencyInfo = '';
-                if (exp.currency === 'EUR') {
-                    currencyInfo = `<span class="text-xs text-gray-400 ml-2">（約 ${roundedTWD.toLocaleString()} TWD）</span>`;
-                }
-
-                const card = document.createElement('div');
-                card.className = 'card space-y-2';
-                card.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="flex-grow">
-                            <h3 class="font-bold text-gray-800">${exp.item}</h3>
-                            <p class="text-sm text-gray-500">
-                                ${exp.date} &bull; ${exp.payer} 付了 
-                                <span class="font-semibold text-gray-800">${roundedOriginal.toLocaleString()}</span> ${exp.currency}
-                                ${currencyInfo}
-                                ${exp.created ? `&bull; <span class="text-xs text-gray-400">${exp.created}</span>` : ''}
-                            </p>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <button class="toggle-details text-gray-500 hover:text-blue-500 transition duration-150">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            <button class="delete-expense-btn text-gray-400 hover:text-red-500 transition duration-150" data-id="${exp.id}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M6 8a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm2-6a2 2 0 00-2 2v12a2 2 0 002 2h4a2 2 0 002-2V4a2 2 0 00-2-2H8z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="expense-details hidden space-y-2">
-                        <h4 class="font-semibold text-gray-700">分攤明細 (每人)</h4>
-                        <ul class="text-sm text-gray-600">
-                            ${validSplitters.map(splitter => `
-                                <li>${splitter}: ${Math.round(amt / validSplitters.length).toLocaleString()} 元</li>
-                            `).join('')}
-                        </ul>
-                    </div>
-                `;
-                expenseHistoryList.appendChild(card);
-            });
-        }
-
-        // 事件委派：展開明細及刪除紀錄
-        expenseHistoryList.addEventListener('click', async (e) => {
-            const toggleBtn = e.target.closest('.toggle-details');
-            if (toggleBtn) {
-                const details = toggleBtn.closest('.card').querySelector('.expense-details');
-                details.classList.toggle('hidden');
-                return;
-            }
-            const delBtn = e.target.closest('.delete-expense-btn');
-            if (delBtn) {
-                if (!confirm('確定要刪除這筆紀錄嗎？')) return;
-                const id = delBtn.dataset.id;
-                try {
-                    // GET 刪除API：action=delete&id=xxx
-                    const r = await fetch(`${WEB_APP_URL}?action=delete&id=${encodeURIComponent(id)}`);
-                    const res = await r.json();
-                    if (res.success) {
-                        toast('已刪除紀錄');
-                        await fetchExpensesFromSheet();
-                    } else {
-                        toast(res.message || '刪除失敗');
-                    }
-                } catch(e) {
-                    toast('刪除失敗');
-                }
-            }
-        });
-
-        function updateDashboard() {
-            updateSummary();
-            renderExpenseHistory();
-        }
-
-        // --- 優化：一載入就顯示快取+loading動畫 ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            loadMembers();
-            renderMembers();
-            loadCachedExpenses(); // 1. 先顯示快取
-            showLoading(expenseHistoryList, '分帳紀錄載入中...'); // 2. 一進來就顯示 loading
-            await fetchExpensesFromSheet(); // 3. 抓最新資料覆蓋
-        });
-    </script>
-</body>
-</html>
