@@ -195,7 +195,7 @@
         </div>
     </div>
     <script>
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzzGCVYIVz1FYoMwrJWT3jNYDNTMupWiZO9fXYlPz0zo2Pl5hl0EfQQ4xiCPB5QL7wC/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyX0siOppqQ8LHGuIbsw_7qgk0OD-akdvkP5NJy6f2aFalH7dCVhkEcYUoD3sI8g4y-/exec';
 
         let members = [
             '吳曉琪', '郭妍伶', '李美娟', '陳伯榕', '蘇慧真',
@@ -492,7 +492,11 @@
                 expenseHistoryList.innerHTML = '<p class="text-gray-500 text-center">目前沒有任何分帳紀錄。</p>';
                 return;
             }
-            expenses.slice().reverse().forEach(exp => {
+            // 依照日期排序（新到舊）
+            const sortedExpenses = expenses.slice().sort((a, b) => {
+                return new Date(b.date) - new Date(a.date);
+            });
+            sortedExpenses.forEach(exp => {
                 const rate = rates[exp.currency] || 35;
                 const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
                 const validSplitters = exp.splitters.filter(s => members.includes(s));
