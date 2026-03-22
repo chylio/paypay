@@ -144,6 +144,7 @@
                                     <select id="currency" class="h-full rounded-md border-transparent bg-gray-50 text-gray-500 text-sm focus:ring-blue-500 focus:border-blue-500">
                                         <option value="TWD">TWD</option>
                                         <option value="EUR">EUR</option>
+                                        <option value="JPY">JPY</option>
                                     </select>
                                 </div>
                             </div>
@@ -194,6 +195,7 @@
             </div>
         </div>
     </div>
+
     <script>
         const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyX0siOppqQ8LHGuIbsw_7qgk0OD-akdvkP5NJy6f2aFalH7dCVhkEcYUoD3sI8g4y-/exec';
 
@@ -202,7 +204,10 @@
             'EMMA', '劉美媛', '黃淑芬', '黃學長'
         ];
         let expenses = [];
-        let rates = { TWD: 1, EUR: 35 };
+
+        // 匯率定義：外幣 * 匯率(=1外幣約等於多少TWD) => 台幣
+        // 提供預設值，避免匯率API失敗時導致計算錯誤或用到不合理的 fallback
+        let rates = { TWD: 1, EUR: 35, JPY: 0.22 };
 
         function saveMembers() {
             localStorage.setItem('members', JSON.stringify(members));
@@ -299,6 +304,9 @@
             checkboxes.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
         });
 
+        // 初始化顯示預設匯率
+        rateDisplay.textContent = '匯率：1 TWD = 1 TWD';
+
         document.getElementById('currency').addEventListener('change', async function() {
             const val = this.value;
             if (val === 'TWD') {
@@ -306,7 +314,6 @@
             } else {
                 rateDisplay.textContent = '匯率查詢中...';
                 try {
-                    // GET 改 action=rate&currency=EUR
                     const url = `${WEB_APP_URL}?action=rate&currency=${encodeURIComponent(val)}`;
                     const r = await fetch(url);
                     const res = await r.json();
@@ -314,10 +321,13 @@
                         rates[val] = res.rate;
                         rateDisplay.textContent = `匯率：1 ${val} ≈ ${res.rate} TWD`;
                     } else {
-                        rateDisplay.textContent = `匯率獲取失敗，預設 1 EUR = 35 TWD`;
+                        // 後端回傳 success:false 或 rate 取不到時，改用本地預設匯率提示
+                        const fallback = rates[val];
+                        rateDisplay.textContent = `匯率獲取失敗，預設 1 ${val} ≈ ${fallback} TWD`;
                     }
                 } catch(e) {
-                    rateDisplay.textContent = `匯率查詢失敗`;
+                    const fallback = rates[val];
+                    rateDisplay.textContent = `匯率查詢失敗，預設 1 ${val} ≈ ${fallback} TWD`;
                 }
             }
         });
@@ -340,7 +350,7 @@
                 toast('請選擇分攤人員');
                 return;
             }
-            // GET 改 action=add&date=...&item=...&amount=...&currency=...&payer=...&splitters=...
+
             const params = new URLSearchParams({
                 action: 'add',
                 date,
@@ -350,6 +360,7 @@
                 payer,
                 splitters: splitters.join(',')
             });
+
             const btn = addExpenseForm.querySelector('button[type="submit"]');
             btn.disabled = true;
             btn.textContent = '送出中...';
@@ -395,6 +406,19 @@
             ele.innerHTML = `<div class="text-red-500 text-center py-8">${msg||'發生錯誤，請稍後再試'}</div>`;
         }
 
+        function getTwdAmount(expense) {
+            const currency = expense.currency;
+            const amount = Number(expense.amount);
+
+            if (currency === 'TWD') return amount;
+
+            // 不要再用 35 當通用 fallback，避免 JPY 沒匯率時算爆
+            const rate = rates[currency];
+            if (!rate) return amount; // 最保守：拿不到匯率就先當作等值（避免爆掉），也可改成回 null 然後顯示警告
+
+            return amount * rate;
+        }
+
         function calculateSummary() {
             const balances = {};
             const detailedTransactions = {};
@@ -402,15 +426,18 @@
                 balances[member] = 0;
                 detailedTransactions[member] = { receivedFrom: [], paidTo: [] };
             });
+
             expenses.forEach(expense => {
                 if (!members.includes(expense.payer)) return;
                 const validSplitters = expense.splitters.filter(s => members.includes(s));
                 if (validSplitters.length === 0) return;
-                const rate = rates[expense.currency] || 35;
-                const amt = expense.currency === 'TWD' ? Number(expense.amount) : Number(expense.amount) * rate;
+
+                const amt = getTwdAmount(expense);
                 const shareAmount = amt / validSplitters.length;
+
                 balances[expense.payer] += amt;
                 validSplitters.forEach(splitter => { balances[splitter] -= shareAmount; });
+
                 validSplitters.forEach(splitter => {
                     if (splitter !== expense.payer) {
                         detailedTransactions[splitter].paidTo.push({
@@ -422,12 +449,14 @@
                     }
                 });
             });
+
             return { balances, detailedTransactions };
         }
 
         function updateSummary() {
             const { balances, detailedTransactions } = calculateSummary();
             summaryList.innerHTML = '';
+
             members.forEach(member => {
                 const balance = balances[member];
                 const roundedBalance = Math.round(balance);
@@ -449,6 +478,7 @@
                 for (const target in paidTo) {
                     paidToHtml += `<li>付款給 <b>${target}</b>：${Math.round(paidTo[target]).toLocaleString()} 元</li>`;
                 }
+
                 let receivedFromHtml = '';
                 const receivedFrom = {};
                 if (detailedTransactions[member]?.receivedFrom) {
@@ -477,11 +507,10 @@
                 `;
                 summaryList.appendChild(card);
             });
+
             let total = 0;
             expenses.forEach(exp => {
-                const rate = rates[exp.currency] || 35;
-                const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
-                total += amt;
+                total += getTwdAmount(exp);
             });
             totalAmountDisplay.textContent = Math.round(total).toLocaleString();
         }
@@ -492,21 +521,20 @@
                 expenseHistoryList.innerHTML = '<p class="text-gray-500 text-center">目前沒有任何分帳紀錄。</p>';
                 return;
             }
-            // 依照日期排序（新到舊）
-            const sortedExpenses = expenses.slice().sort((a, b) => {
-                return new Date(b.date) - new Date(a.date);
-            });
-            sortedExpenses.forEach(exp => {
-                const rate = rates[exp.currency] || 35;
-                const amt = exp.currency === 'TWD' ? Number(exp.amount) : Number(exp.amount) * rate;
-                const validSplitters = exp.splitters.filter(s => members.includes(s));
-                // 四捨五入
-                const roundedOriginal = Math.round(exp.amount);
-                const roundedTWD = Math.round(amt);
 
-                // 額外顯示換算金額（如果是歐元）
+            // 依照日期排序（新到舊）
+            const sortedExpenses = expenses.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            sortedExpenses.forEach(exp => {
+                const amtTwd = getTwdAmount(exp);
+                const validSplitters = exp.splitters.filter(s => members.includes(s));
+
+                const roundedOriginal = Math.round(exp.amount);
+                const roundedTWD = Math.round(amtTwd);
+
+                // 額外顯示換算金���（非台幣就顯示，EUR/JPY都顯示）
                 let currencyInfo = '';
-                if (exp.currency === 'EUR') {
+                if (exp.currency && exp.currency !== 'TWD') {
                     currencyInfo = `<span class="text-xs text-gray-400 ml-2">（約 ${roundedTWD.toLocaleString()} TWD）</span>`;
                 }
 
@@ -517,7 +545,7 @@
                         <div class="flex-grow">
                             <h3 class="font-bold text-gray-800">${exp.item}</h3>
                             <p class="text-sm text-gray-500">
-                                ${exp.date} &bull; ${exp.payer} 付了 
+                                ${exp.date} &bull; ${exp.payer} 付了
                                 <span class="font-semibold text-gray-800">${roundedOriginal.toLocaleString()}</span> ${exp.currency}
                                 ${currencyInfo}
                                 ${exp.created ? `&bull; <span class="text-xs text-gray-400">${exp.created}</span>` : ''}
@@ -540,7 +568,7 @@
                         <h4 class="font-semibold text-gray-700">分攤明細 (每人)</h4>
                         <ul class="text-sm text-gray-600">
                             ${validSplitters.map(splitter => `
-                                <li>${splitter}: ${Math.round(amt / validSplitters.length).toLocaleString()} 元</li>
+                                <li>${splitter}: ${Math.round(amtTwd / validSplitters.length).toLocaleString()} 元</li>
                             `).join('')}
                         </ul>
                     </div>
@@ -557,12 +585,12 @@
                 details.classList.toggle('hidden');
                 return;
             }
+
             const delBtn = e.target.closest('.delete-expense-btn');
             if (delBtn) {
                 if (!confirm('確定要刪除這筆紀錄嗎？')) return;
                 const id = delBtn.dataset.id;
                 try {
-                    // GET 刪除API：action=delete&id=xxx
                     const r = await fetch(`${WEB_APP_URL}?action=delete&id=${encodeURIComponent(id)}`);
                     const res = await r.json();
                     if (res.success) {
